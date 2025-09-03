@@ -49,6 +49,13 @@ float getDistance(int trigPin, int echoPin) {
   return distance;
 }
 
+void closeGate(){
+    digitalWrite(greenLed, LOW);
+    digitalWrite(redLed, HIGH);
+    delay(2000);
+    myServo.write(90);   // close gate
+}
+
 void loop() {
   // Measure distances
   distance1 = getDistance(trigPin1, echoPin1);
@@ -61,15 +68,10 @@ void loop() {
   Serial.println(" cm");
 
   // If entry sensor detects object within 10 cm then close gate
-  if (distance1 > 0 && distance1 <= 10) {
-    digitalWrite(greenLed, LOW);
-    digitalWrite(redLed, HIGH);
-
-    delay(2000);
-
-    myServo.write(90);   // close gate
+  if (distance1 > 0 && distance1 <= 10) closeGate();
     
-  }
+    
+  
 
   // If exit sensor detects object within 10 cm → open gate
   if (distance2 > 0 && distance2 <= 10) {
