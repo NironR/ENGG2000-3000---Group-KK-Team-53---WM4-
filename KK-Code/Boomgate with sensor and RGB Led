@@ -1,0 +1,89 @@
+#include <Servo.h>
+
+const int trigPin = 4;
+const int echoPin = 3;
+
+//RGB pins
+const int ledPinR = 8; 
+const int ledPinB = 9; 
+const int ledPinG = 10; 
+
+int posOpen=0; // servo open position	
+int posClose=90; // servo close position
+
+float duration, distance;
+
+Servo servo_13;
+
+
+void setup() {
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(ledPinR, OUTPUT);
+  pinMode(ledPinB, OUTPUT);
+  pinMode(ledPinG, OUTPUT);
+  Serial.begin(9600);
+  servo_13.attach(13, 500, 2500); 
+  servo_13.write(0); 
+}
+
+void loop() {
+  
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration*.0343)/2;
+  Serial.print("Distance: ");
+  Serial.println(distance);
+  delay(100);
+  
+  farDistanceSignal();
+  closeDistanceSignal();    
+}
+  
+  
+
+//detects is the ship is far, signal turns green and boomgate opens
+void farDistanceSignal(){
+  if(distance>100 && distance<300){
+    greenSignal();
+  	boomgateOpen();
+  }
+}
+
+//detects if the ship is near, signal turns red and boomgate closes.
+void closeDistanceSignal(){
+if (distance>20 && distance<100){
+  redSignal();
+   boomgateClose();
+  }
+
+}
+
+void boomgateClose(){
+    servo_13.write(posClose); 
+    delay(100); 
+  }
+
+void boomgateOpen(){ 
+    servo_13.write(posOpen);
+     delay(100);  
+}
+
+//turns LED red
+void redSignal() {  
+   digitalWrite(ledPinR,255);
+    digitalWrite(ledPinB,0);
+    digitalWrite(ledPinG, 0);	
+}
+
+//turns LED green
+void greenSignal(){
+	   	digitalWrite(ledPinR,0);
+   		 digitalWrite(ledPinB,0);
+   		 digitalWrite(ledPinG, 255); 
+}
