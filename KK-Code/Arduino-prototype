@@ -56,6 +56,13 @@ void closeGate(){
     myServo.write(90);   // close gate
 }
 
+void openGate(){
+    digitalWrite(redLed, LOW);
+    digitalWrite(greenLed, HIGH);
+    delay(2000);
+    myServo.write(0);    // open gate
+}
+
 void loop() {
   // Measure distances
   distance1 = getDistance(trigPin1, echoPin1);
@@ -70,19 +77,10 @@ void loop() {
   // If entry sensor detects object within 10 cm then close gate
   if (distance1 > 0 && distance1 <= 10) closeGate();
     
+  // If exit sensor detects object within 10 cm → open gate
+  if (distance2 > 0 && distance2 <= 10) openGate();
     
   
-
-  // If exit sensor detects object within 10 cm → open gate
-  if (distance2 > 0 && distance2 <= 10) {
-    digitalWrite(redLed, LOW);
-    digitalWrite(greenLed, HIGH);
-
-    delay(2000);
-    
-    myServo.write(0);    // open gate
-  }
-
   delay(200); // small delay for stability
 }
 
