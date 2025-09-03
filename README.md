@@ -1,7 +1,7 @@
 # Opening Bridge Control System — Software Documentation Overview (Team KK)
 
 ##  Project Overview
-This repository contains the **software subsystem** for the ENGG2000/3000 SPINE Engineering Project — a **sensor-driven, remotely controllable opening bridge**, developed by **Team KK**.  
+This repository contains the **software subsystem** for the ENGG2000/3000 SPINE Engineering Project, a **sensor-driven, remotely controllable opening bridge**, developed by **Team KK**.  
 The system integrates **ESP32 microcontrollers**, motor drivers, ultrasonic sensors, LEDs, and a wireless user interface to manage bridge operations for both pedestrian and vehicular traffic, while allowing ships to pass safely.
 
 This repository focuses on the **SYSTEMS** group deliverables, which include:
