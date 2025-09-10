@@ -1,1 +1,104 @@
+#include <ESP32Servo.h>
+#include "WiFi.h"
 
+
+Servo myServo;
+
+const char* ssid = "*****";
+const char* password = "*****";
+
+// LED pins
+int redLed = 8;
+int yellowLed = 9;
+int greenLed = 10;
+const int ledPin = LED_BUILTIN; //check
+WiFiServer server(80);
+
+// Ultrasonic sensor 1 (entry)
+int trigPin1 = 2;
+int echoPin1 = 3;
+
+// Ultrasonic sensor 2 (exit)
+int trigPin2 = 4;
+int echoPin2 = 5;
+
+long duration;
+float distance1, distance2;
+
+void setup() {
+  Serial.begin(115200);
+  myServo.attach(6);          // servo signal pin
+  pinMode(redLed, OUTPUT);
+  pinMode(yellowLed, OUTPUT);
+  pinMode(greenLed, OUTPUT);
+
+  pinMode(trigPin1, OUTPUT);
+  pinMode(echoPin1, INPUT);
+  pinMode(trigPin2, OUTPUT);
+  pinMode(echoPin2, INPUT);
+
+//
+ WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  // Start with green light ON and boom gate up
+  digitalWrite(greenLed, HIGH);
+  digitalWrite(redLed, LOW);
+  myServo.write(0);   // boom gate open
+  Serial.begin(9600); // to see ultrasonic readings
+}
+
+// Function to measure distance
+float getDistance(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH, 20000); // 20ms timeout
+  float distance = duration * 0.034 / 2;  // cm
+  return distance;
+}
+
+void closeGate(){
+    digitalWrite(greenLed, LOW);
+    digitalWrite(redLed, HIGH);
+    delay(2000);
+    myServo.write(90);   // close gate
+}
+
+void openGate(){
+    digitalWrite(redLed, LOW);
+    digitalWrite(greenLed, HIGH);
+    delay(2000);
+    myServo.write(0);    // open gate
+}
+
+void loop() {
+
+  // Measure distances
+  distance1 = getDistance(trigPin1, echoPin1);
+  distance2 = getDistance(trigPin2, echoPin2);
+
+  Serial.print("Sensor 1: ");
+  Serial.print(distance1);
+  Serial.print(" cm | Sensor 2: ");
+  Serial.print(distance2);
+  Serial.println(" cm");
+
+  // If entry sensor detects object within 10 cm then close gate
+  if (distance1 > 0 && distance1 <= 10) closeGate();
+    
+  // If exit sensor detects object within 10 cm → open gate
+  if (distance2 > 0 && distance2 <= 10) openGate();
+    
+  
+  delay(200); // small delay for stability
+}
