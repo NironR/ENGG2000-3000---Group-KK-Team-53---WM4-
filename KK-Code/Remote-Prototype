@@ -1,104 +1,152 @@
 #include <ESP32Servo.h>
-#include "WiFi.h"
-
+#include <WiFi.h>
 
 Servo myServo;
 
-const char* ssid = "*****";
+// name and password
+const char* ssid     = "*****";
 const char* password = "*****";
 
-// LED pins
-int redLed = 8;
-int yellowLed = 9;
-int greenLed = 10;
-const int ledPin = LED_BUILTIN; //check
+// pins
+const int SERVO_PIN   = 23;   // was 6 (bad). Use 23 (safe).
+const int RED_LED     = 27;   // was 8  (bad). Use 27 (safe).
+const int YELLOW_LED  = 26;   // was 9  (bad). Use 26 (safe).
+const int GREEN_LED   = 25;   // was 10 (bad). Use 25 (safe).
+
 WiFiServer server(80);
 
-// Ultrasonic sensor 1 (entry)
-int trigPin1 = 2;
-int echoPin1 = 3;
+// Track gate state
+bool gateIsOpen = true;
 
-// Ultrasonic sensor 2 (exit)
-int trigPin2 = 4;
-int echoPin2 = 5;
 
-long duration;
-float distance1, distance2;
+void closeGate(){
+  digitalWrite(GREEN_LED, LOW);
+  digitalWrite(RED_LED, HIGH);
+  delay(2000);
+  myServo.write(90);   // close gate
+  gateIsOpen = false;
+}
+
+void openGate(){
+  digitalWrite(RED_LED, LOW);
+  digitalWrite(GREEN_LED, HIGH);
+  delay(2000);
+  myServo.write(0);    // open gate
+  gateIsOpen = true;
+}
+
+// HTML
+const char PAGE[] PROGMEM = R"HTML(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ESP32 Boom Gate</title>
+<style>
+  body { font-family: system-ui, Arial; margin: 24px; }
+  h1 { margin-bottom: 8px; }
+  .state { margin: 12px 0 24px; font-size: 1.1rem; }
+  .row { display:flex; gap:12px; }
+  a.btn {
+    display:inline-block; padding:12px 16px; text-decoration:none; 
+    border:1px solid #333; border-radius:8px;
+  }
+</style>
+</head>
+<body>
+  <h1>ESP32 Boom Gate</h1>
+  <div class="state">State: %%STATE%%</div>
+  <div class="row">
+    <a class="btn" href="/open">Open</a>
+    <a class="btn" href="/close">Close</a>
+    <a class="btn" href="/">Refresh</a>
+  </div>
+</body>
+</html>
+)HTML";
+
+// http helpers
+void sendPage(WiFiClient& client, const String& stateTxt) {
+  // Prepare body with current state
+  String body = PAGE;
+  body.replace("%%STATE%%", stateTxt);
+
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/html; charset=utf-8");
+  client.println("Connection: close");
+  client.print("Content-Length: ");
+  client.println(body.length());
+  client.println();
+  client.print(body);
+}
+
+void sendNotFound(WiFiClient& client) {
+  client.println("HTTP/1.1 404 Not Found");
+  client.println("Content-Type: text/plain");
+  client.println("Connection: close");
+  client.println();
+  client.println("Not found");
+}
 
 void setup() {
   Serial.begin(115200);
-  myServo.attach(6);          // servo signal pin
-  pinMode(redLed, OUTPUT);
-  pinMode(yellowLed, OUTPUT);
-  pinMode(greenLed, OUTPUT);
 
-  pinMode(trigPin1, OUTPUT);
-  pinMode(echoPin1, INPUT);
-  pinMode(trigPin2, OUTPUT);
-  pinMode(echoPin2, INPUT);
+  // I/O
+  pinMode(RED_LED, OUTPUT);
+  pinMode(YELLOW_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  digitalWrite(YELLOW_LED, LOW); // unused but set low
 
-//
- WiFi.begin(ssid, password);
+  myServo.attach(SERVO_PIN);
+
+  // Wi-Fi
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to Wi-Fi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("");
-  Serial.print("IP address: ");
+  Serial.println();
+  Serial.print("Connected. IP address: ");
   Serial.println(WiFi.localIP());
 
-  // Start with green light ON and boom gate up
-  digitalWrite(greenLed, HIGH);
-  digitalWrite(redLed, LOW);
-  myServo.write(0);   // boom gate open
-  Serial.begin(9600); // to see ultrasonic readings
-}
-
-// Function to measure distance
-float getDistance(int trigPin, int echoPin) {
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-
-  long duration = pulseIn(echoPin, HIGH, 20000); // 20ms timeout
-  float distance = duration * 0.034 / 2;  // cm
-  return distance;
-}
-
-void closeGate(){
-    digitalWrite(greenLed, LOW);
-    digitalWrite(redLed, HIGH);
-    delay(2000);
-    myServo.write(90);   // close gate
-}
-
-void openGate(){
-    digitalWrite(redLed, LOW);
-    digitalWrite(greenLed, HIGH);
-    delay(2000);
-    myServo.write(0);    // open gate
+  // HTTP server
+  server.begin();
 }
 
 void loop() {
+  WiFiClient client = server.available();
+  if (!client) return;
 
-  // Measure distances
-  distance1 = getDistance(trigPin1, echoPin1);
-  distance2 = getDistance(trigPin2, echoPin2);
+  // Wait for request data
+  unsigned long start = millis();
+  while (!client.available()) {
+    if (millis() - start > 2000) { client.stop(); return; }
+    delay(1);
+  }
 
-  Serial.print("Sensor 1: ");
-  Serial.print(distance1);
-  Serial.print(" cm | Sensor 2: ");
-  Serial.print(distance2);
-  Serial.println(" cm");
+  // Read the request line
+  String req = client.readStringUntil('\r');
+  client.readStringUntil('\n'); // consume LF
 
-  // If entry sensor detects object within 10 cm then close gate
-  if (distance1 > 0 && distance1 <= 10) closeGate();
-    
-  // If exit sensor detects object within 10 cm → open gate
-  if (distance2 > 0 && distance2 <= 10) openGate();
-    
-  
-  delay(200); // small delay for stability
+  // Very simple routing based on the path
+  if (req.startsWith("GET /open")) {
+    openGate(); 
+
+    sendPage(client, "OPEN");
+  } else if (req.startsWith("GET /close")) {
+    closeGate();
+
+    sendPage(client, "CLOSED");
+  } else if (req.startsWith("GET / ") || req.startsWith("GET /favicon.ico")) {
+    sendPage(client, gateIsOpen ? "OPEN" : "CLOSED");
+  } else {
+    sendNotFound(client);
+  }
+
+  // Flush and close
+  delay(1);
+  client.stop();
 }
