@@ -15,7 +15,7 @@ const int GREEN_LED   = 25;   // was 10 (bad). Use 25 (safe).
 
 WiFiServer server(80);
 
-// Track gate state
+
 bool gateIsOpen = true;
 
 
@@ -35,7 +35,7 @@ void openGate(){
   gateIsOpen = true;
 }
 
-// HTML
+//html
 const char PAGE[] PROGMEM = R"HTML(
 <!DOCTYPE html>
 <html lang="en">
@@ -92,7 +92,7 @@ void sendNotFound(WiFiClient& client) {
 void setup() {
   Serial.begin(115200);
 
-  // I/O
+  //I/O
   pinMode(RED_LED, OUTPUT);
   pinMode(YELLOW_LED, OUTPUT);
   pinMode(GREEN_LED, OUTPUT);
@@ -100,7 +100,7 @@ void setup() {
 
   myServo.attach(SERVO_PIN);
 
-  // Wi-Fi
+  //wifi
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   Serial.print("Connecting to Wi-Fi");
@@ -120,18 +120,18 @@ void loop() {
   WiFiClient client = server.available();
   if (!client) return;
 
-  // Wait for request data
+  //wait for request data
   unsigned long start = millis();
   while (!client.available()) {
     if (millis() - start > 2000) { client.stop(); return; }
     delay(1);
   }
 
-  // Read the request line
+  //read the request line
   String req = client.readStringUntil('\r');
   client.readStringUntil('\n'); // consume LF
 
-  // Very simple routing based on the path
+  //very simple routing based on the path
   if (req.startsWith("GET /open")) {
     openGate(); 
 
@@ -146,7 +146,7 @@ void loop() {
     sendNotFound(client);
   }
 
-  // Flush and close
+  //flush and close
   delay(1);
   client.stop();
 }
