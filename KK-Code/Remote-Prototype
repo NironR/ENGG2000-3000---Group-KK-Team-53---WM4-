@@ -4,8 +4,8 @@
 Servo myServo;
 
 // name and password
-const char* ssid     = "*****";
-const char* password = "*****";
+const char* ssid     = "hello world";
+const char* password = "im the goat";
 
 // pins
 const int SERVO_PIN   = 23;   // was 6 (bad). Use 23 (safe).
