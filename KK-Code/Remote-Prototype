@@ -8,10 +8,10 @@ const char* ssid     = "hello world";
 const char* password = "im the goat";
 
 // pins
-const int SERVO_PIN   = 23;   // was 6 (bad). Use 23 (safe).
-const int RED_LED     = 27;   // was 8  (bad). Use 27 (safe).
-const int YELLOW_LED  = 26;   // was 9  (bad). Use 26 (safe).
-const int GREEN_LED   = 25;   // was 10 (bad). Use 25 (safe).
+const int SERVO_PIN   = 23;
+const int RED_LED     = 27;
+const int YELLOW_LED  = 26; 
+const int GREEN_LED   = 25; 
 
 WiFiServer server(80);
 
