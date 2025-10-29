@@ -20,7 +20,6 @@ This repository focuses on the **SYSTEMS** group deliverables, which include:
 | Kyle Chow | 46586091 | kyle.chow@students.mq.edu.au |
 | Ryan Norin | 46999795 | ryan.norin@students.mq.edu.au |
 | Lemar Khatiz | 47288744 | lemar.khatiz@students.mq.edu.au |
-| Chas Liddell-Vassallo | 48582441 | chas.liddellvassallo@students.mq.edu.au |
 | Aarya Nepal | 47401427 | aarya.nepal1@students.mq.edu.au |
 | Jared Kaw | 46632166 | jared.kaw@students.mq.edu.au |
 
