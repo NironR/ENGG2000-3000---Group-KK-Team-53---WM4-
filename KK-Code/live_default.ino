@@ -7,8 +7,8 @@
 #include <ESP32Servo.h>
 
 // WiFi credentials
-const char* ssid = "airwave2";
-const char* password = "tpg@!225Ultr@$";
+const char* ssid = "SSID";
+const char* password = "PASSWORD";
 
 // Set web server port number to 80
 WiFiServer server(80);
