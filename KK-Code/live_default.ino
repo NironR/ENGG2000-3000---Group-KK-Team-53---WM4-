@@ -1,6 +1,6 @@
 /*********
-  ESP32 Boom Gate Web Server
-  Combines web server controls with servo gate control
+  ESP32 Opening Bridge - Manual Control Only
+  WiFi web server for manual bridge control
 *********/
 
 #include <WiFi.h>
@@ -21,7 +21,7 @@ Servo myServo;
 const int SERVO_PIN   = 23;
 const int RED_LED     = 27;
 const int YELLOW_LED  = 26; 
-const int GREEN_LED   = 25; 
+const int GREEN_LED   = 25;
 
 // Gate state
 bool gateIsOpen = true;
@@ -33,19 +33,39 @@ const long timeoutTime = 2000;
 
 // Gate control functions
 void closeGate(){
+  // Flash yellow warning
+  for(int i = 0; i < 3; i++) {
+    digitalWrite(YELLOW_LED, HIGH);
+    delay(200);
+    digitalWrite(YELLOW_LED, LOW);
+    delay(200);
+  }
+  
+  // Switch to red and close
   digitalWrite(GREEN_LED, LOW);
   digitalWrite(RED_LED, HIGH);
-  delay(2000);
-  myServo.write(90);   // close gate
+  digitalWrite(YELLOW_LED, LOW);
+  delay(1000);
+  myServo.write(90);   // close gate (adjust angle as needed)
   gateIsOpen = false;
   Serial.println("Gate CLOSED");
 }
 
 void openGate(){
+  // Flash yellow warning
+  for(int i = 0; i < 3; i++) {
+    digitalWrite(YELLOW_LED, HIGH);
+    delay(200);
+    digitalWrite(YELLOW_LED, LOW);
+    delay(200);
+  }
+  
+  // Switch to green and open
   digitalWrite(RED_LED, LOW);
   digitalWrite(GREEN_LED, HIGH);
-  delay(2000);
-  myServo.write(0);    // open gate
+  digitalWrite(YELLOW_LED, LOW);
+  delay(1000);
+  myServo.write(0);    // open gate (adjust angle as needed)
   gateIsOpen = true;
   Serial.println("Gate OPENED");
 }
@@ -58,16 +78,17 @@ void setup() {
   pinMode(YELLOW_LED, OUTPUT);
   pinMode(GREEN_LED, OUTPUT);
   
-  // Set initial states
+  // Set initial states - gate open, green light on
   digitalWrite(YELLOW_LED, LOW);
   digitalWrite(RED_LED, LOW);
-  digitalWrite(GREEN_LED, HIGH);  // Start with green (gate open)
+  digitalWrite(GREEN_LED, HIGH);
   
-  // Initialize servo
+  // Initialize servo - start with gate open
   myServo.attach(SERVO_PIN);
-  myServo.write(0);  // Start with gate open
+  myServo.write(0);  // Open position
 
   // Connect to Wi-Fi
+  Serial.println("\n=== ESP32 Opening Bridge - Manual Control ===");
   Serial.print("Connecting to ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
@@ -79,9 +100,11 @@ void setup() {
   
   // Print local IP address and start web server
   Serial.println("");
-  Serial.println("WiFi connected.");
-  Serial.println("IP address: ");
+  Serial.println("WiFi connected!");
+  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+  Serial.println("Web server started");
+  Serial.println("=============================================\n");
   server.begin();
 }
 
@@ -91,9 +114,9 @@ void loop(){
   if (client) {                             // If a new client connects,
     currentTime = millis();
     previousTime = currentTime;
-    Serial.println("New Client.");          // print a message out in the serial port
+    Serial.println("New Client connected");
     String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected() && currentTime - previousTime <= timeoutTime) {  // loop while the client's connected
+    while (client.connected() && currentTime - previousTime <= timeoutTime) {
       currentTime = millis();
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
@@ -104,44 +127,57 @@ void loop(){
           // that's the end of the client HTTP request, so send a response:
           if (currentLine.length() == 0) {
             // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-            // and a content-type so the client knows what's coming, then a blank line:
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
             
-            // Handle gate control
+            // === HANDLE COMMANDS ===
             if (header.indexOf("GET /open") >= 0) {
+              Serial.println("Manual OPEN command received");
               openGate();
             } else if (header.indexOf("GET /close") >= 0) {
+              Serial.println("Manual CLOSE command received");
               closeGate();
             }
             
-            // Display the HTML web page
+            // === BUILD HTML PAGE ===
             client.println("<!DOCTYPE html><html>");
             client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
             client.println("<link rel=\"icon\" href=\"data:,\">");
-            // CSS to style the buttons
-            client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
-            client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;");
-            client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
+            
+            // CSS styling
+            client.println("<style>");
+            client.println("html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
+            client.println("h1 { margin-bottom: 10px; }");
+            client.println(".status { font-size: 1.8rem; margin: 30px 0; padding: 20px; border-radius: 8px; }");
+            client.println(".open { background-color: #d4edda; color: #155724; }");
+            client.println(".closed { background-color: #f8d7da; color: #721c24; }");
+            client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 20px 50px;");
+            client.println("text-decoration: none; font-size: 28px; margin: 10px; cursor: pointer; border-radius: 8px; display: inline-block;}");
             client.println(".button2 {background-color: #f44336;}");
-            client.println(".button3 {background-color: #555555;}</style></head>");
+            client.println(".led-status { margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 8px; }");
+            client.println("</style></head>");
             
-            // Web Page Heading
-            client.println("<body><h1>ESP32 Boom Gate Control</h1>");
+            // Page content
+            client.println("<body><h1>ESP32 Opening Bridge</h1>");
+            client.println("<h2>Manual Control</h2>");
             
-            // Display current gate state
-            client.println("<p>Gate Status: <strong>" + String(gateIsOpen ? "OPEN" : "CLOSED") + "</strong></p>");
+            // Bridge status
+            client.println("<div class=\"status " + String(gateIsOpen ? "open" : "closed") + "\">");
+            client.println("Bridge Status: <strong>" + String(gateIsOpen ? "OPEN" : "CLOSED") + "</strong></div>");
             
-            // Display control buttons
-            client.println("<p><a href=\"/open\"><button class=\"button\">OPEN GATE</button></a></p>");
-            client.println("<p><a href=\"/close\"><button class=\"button button2\">CLOSE GATE</button></a></p>");
+            // Control buttons
+            client.println("<p><a href=\"/open\"><button class=\"button\">OPEN BRIDGE</button></a></p>");
+            client.println("<p><a href=\"/close\"><button class=\"button button2\">CLOSE BRIDGE</button></a></p>");
             
-            // Display LED status
-            client.println("<hr>");
+            // LED status
+            client.println("<div class=\"led-status\">");
+            client.println("<h3>Traffic Lights Status</h3>");
             client.println("<p>Red LED: " + String(digitalRead(RED_LED) ? "ON" : "OFF") + "</p>");
+            client.println("<p>Yellow LED: " + String(digitalRead(YELLOW_LED) ? "ON" : "OFF") + "</p>");
             client.println("<p>Green LED: " + String(digitalRead(GREEN_LED) ? "ON" : "OFF") + "</p>");
+            client.println("</div>");
             
             client.println("</body></html>");
             
@@ -161,7 +197,6 @@ void loop(){
     header = "";
     // Close the connection
     client.stop();
-    Serial.println("Client disconnected.");
-    Serial.println("");
+    Serial.println("Client disconnected\n");
   }
 }
