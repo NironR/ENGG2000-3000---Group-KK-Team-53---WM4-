@@ -1,5 +1,7 @@
-#include <ESP32Servo.h>
 #include <WiFi.h>
+#include <WiFiClient.h>
+#include <WebServer.h>
+#include <uri/UriBraces.h>
 
 Servo myServo;
 
