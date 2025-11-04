@@ -5,10 +5,12 @@
 
 #include <WiFi.h>
 #include <ESP32Servo.h>
+#include "esp_wpa2.h"   // Required for enterprise authentication
 
-// WiFi credentials
-const char* ssid = "SSID";
-const char* password = "PASSWORD";
+// ===== CREDENTIALS ====== 
+#define WIFI_SSID "Macquarie OneNet"
+#define EAP_IDENTITY "STUDENT_NUMBER" 
+#define EAP_PASSWORD "PASSWORD"                      
 
 // Set web server port number to 80
 WiFiServer server(80);
@@ -30,11 +32,11 @@ const int TRIG_PIN_RIGHT = 19;
 const int ECHO_PIN_RIGHT = 18;
 
 // Timing constants (adjustable)
-const int MAX_WAIT_TIME = 20000;           // 20 seconds maximum wait (safety timeout)
-const int DETECTION_DISTANCE = 20;         // Detection range in cm
-const int CLEAR_DISTANCE = 50;             // Distance considered "clear" in cm
-const int SAFETY_DELAY = 2000;             // Extra safety buffer in ms
-const int SENSOR_CHECK_INTERVAL = 200;     // How often to check sensors in ms
+const int MAX_WAIT_TIME = 20000;
+const int DETECTION_DISTANCE = 20;
+const int CLEAR_DISTANCE = 50;
+const int SAFETY_DELAY = 2000;
+const int SENSOR_CHECK_INTERVAL = 200;
 
 // State variables
 bool gateIsOpen = true;
@@ -54,10 +56,10 @@ float getDistance(int trigPin, int echoPin) {
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
   
-  long duration = pulseIn(echoPin, HIGH, 20000); // 20ms timeout
-  if (duration == 0) return -1; // No response
+  long duration = pulseIn(echoPin, HIGH, 20000);
+  if (duration == 0) return -1;
   
-  float distance = duration * 0.034 / 2;  // Convert to cm
+  float distance = duration * 0.034 / 2;
   return distance;
 }
 
@@ -66,7 +68,7 @@ void closeGate(){
   digitalWrite(GREEN_LED, LOW);
   digitalWrite(RED_LED, HIGH);
   delay(2000);
-  myServo.write(90);   // close gate (adjust angle as needed)
+  myServo.write(90);
   gateIsOpen = false;
   Serial.println("Gate CLOSED");
 }
@@ -75,7 +77,7 @@ void openGate(){
   digitalWrite(RED_LED, LOW);
   digitalWrite(GREEN_LED, HIGH);
   delay(2000);
-  myServo.write(0);    // open gate (adjust angle as needed)
+  myServo.write(0);
   gateIsOpen = true;
   Serial.println("Gate OPENED");
 }
@@ -85,7 +87,7 @@ void automaticBridgeSequence() {
   sequenceInProgress = true;
   Serial.println("=== BOAT DETECTED! Starting automatic sequence ===");
   
-  // 1. Flash yellow warning (boat approaching)
+  // 1. Flash yellow warning
   Serial.println("Warning phase: Flashing yellow LED");
   for(int i = 0; i < 6; i++) {
     digitalWrite(YELLOW_LED, HIGH);
@@ -108,20 +110,17 @@ void automaticBridgeSequence() {
   int checkCount = 0;
   
   while(millis() - startTime < MAX_WAIT_TIME) {
-    // Check if manual override triggered
     if (!autoMode) {
       Serial.println("Manual override activated - sequence interrupted");
       sequenceInProgress = false;
       return;
     }
     
-    // Check both sensors
     float leftDist = getDistance(TRIG_PIN_LEFT, ECHO_PIN_LEFT);
     float rightDist = getDistance(TRIG_PIN_RIGHT, ECHO_PIN_RIGHT);
     
     checkCount++;
     
-    // Log sensor readings every 10 checks (~5 seconds)
     if (checkCount % 10 == 0) {
       Serial.print("  Sensors - Left: ");
       Serial.print(leftDist);
@@ -132,7 +131,6 @@ void automaticBridgeSequence() {
       Serial.println("s)");
     }
     
-    // Check if BOTH sensors show no boat (beyond clear distance)
     bool leftClear = (leftDist < 0 || leftDist > CLEAR_DISTANCE);
     bool rightClear = (rightDist < 0 || rightDist > CLEAR_DISTANCE);
     
@@ -142,7 +140,7 @@ void automaticBridgeSequence() {
       Serial.print((millis() - startTime) / 1000.0);
       Serial.println(" seconds");
       sensorsCleared = true;
-      break;  // Exit early - boat has passed!
+      break;
     }
     
     delay(500);
@@ -155,11 +153,9 @@ void automaticBridgeSequence() {
     Serial.println(" seconds");
   }
   
-  // 4. Additional safety delay
   Serial.println("Safety delay...");
   delay(SAFETY_DELAY);
   
-  // 5. Reopen gate to car traffic
   Serial.println("Reopening to car traffic...");
   if (!gateIsOpen && autoMode) {
     openGate();
@@ -183,22 +179,37 @@ void setup() {
   pinMode(TRIG_PIN_RIGHT, OUTPUT);
   pinMode(ECHO_PIN_RIGHT, INPUT);
   
-  // Set initial states - gate open, green light on
+  // Set initial states
   digitalWrite(YELLOW_LED, LOW);
   digitalWrite(RED_LED, LOW);
   digitalWrite(GREEN_LED, HIGH);
   
-  // Initialize servo - start with gate open
+  // Initialize servo
   myServo.attach(SERVO_PIN);
-  myServo.write(0);  // Open position
+  myServo.write(0);
 
-  // Connect to Wi-Fi
+  // ===== CONNECT TO MACQUARIE UNIVERSITY WIFI =====
   Serial.println("\n=== ESP32 Opening Bridge System ===");
-  Serial.println("Smart Timer Mode: Sensors + Timeout");
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
+  Serial.println("Connecting to Macquarie OneNet (WPA2-Enterprise)...");
+  Serial.print("SSID: ");
+  Serial.println(WIFI_SSID);
+  Serial.print("Identity: ");
+  Serial.println(EAP_IDENTITY);
   
+  // Disconnect from any previous connections
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_STA);
+  
+  // Configure WPA2-Enterprise authentication
+  esp_wifi_sta_wpa2_ent_set_identity((uint8_t *)EAP_IDENTITY, strlen(EAP_IDENTITY));
+  esp_wifi_sta_wpa2_ent_set_username((uint8_t *)EAP_IDENTITY, strlen(EAP_IDENTITY));
+  esp_wifi_sta_wpa2_ent_set_password((uint8_t *)EAP_PASSWORD, strlen(EAP_PASSWORD));
+  esp_wifi_sta_wpa2_ent_enable();
+  
+  // Start connection
+  WiFi.begin(WIFI_SSID);
+  
+  // Wait for connection (up to 20 seconds)
   int timeout = 0;
   while (WiFi.status() != WL_CONNECTED && timeout < 40) {
     delay(500);
@@ -207,18 +218,19 @@ void setup() {
   }
   
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\n\nFAILED TO CONNECT TO WIFI!");
-    Serial.println("Check your credentials:");
-    Serial.print("SSID: ");
-    Serial.println(ssid);
-    Serial.print("Password length: ");
-    Serial.println(strlen(password));
-    Serial.println("\nMake sure you're using 2.4GHz WiFi!");
+    Serial.println("\n\nFAILED TO CONNECT TO MACQUARIE ONENET!");
+    Serial.println("\n=== Troubleshooting Guide ===");
+    Serial.println("1. Check your Student ID format:");
+    Serial.println("\n2. Verify your OneID password is correct");
+    Serial.println(WiFi.macAddress());
+    Serial.println("\n4. Ensure you're in range of Macquarie OneNet");
   } else {
     Serial.println("");
-    Serial.println("WiFi connected!");
+    Serial.println("Successfully connected to Macquarie OneNet!");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+    Serial.print("MAC address: ");
+    Serial.println(WiFi.macAddress());
   }
   
   Serial.println("Web server started");
@@ -232,7 +244,6 @@ void loop(){
     float leftDist = getDistance(TRIG_PIN_LEFT, ECHO_PIN_LEFT);
     float rightDist = getDistance(TRIG_PIN_RIGHT, ECHO_PIN_RIGHT);
     
-    // If EITHER sensor detects boat within detection range
     if ((leftDist > 0 && leftDist <= DETECTION_DISTANCE) || 
         (rightDist > 0 && rightDist <= DETECTION_DISTANCE)) {
       Serial.print("\nBOAT DETECTED! Left: ");
@@ -242,36 +253,32 @@ void loop(){
       Serial.println("cm");
       
       automaticBridgeSequence();
-      delay(2000); // Debounce delay before checking sensors again
+      delay(2000);
     }
   }
   
   // === WEB SERVER HANDLING ===
-  WiFiClient client = server.available();   // Listen for incoming clients
+  WiFiClient client = server.available();
 
-  if (client) {                             // If a new client connects,
+  if (client) {
     currentTime = millis();
     previousTime = currentTime;
     Serial.println("New Client connected");
-    String currentLine = "";                // make a String to hold incoming data from the client
+    String currentLine = "";
     while (client.connected() && currentTime - previousTime <= timeoutTime) {
       currentTime = millis();
-      if (client.available()) {             // if there's bytes to read from the client,
-        char c = client.read();             // read a byte, then
-        Serial.write(c);                    // print it out the serial monitor
+      if (client.available()) {
+        char c = client.read();
+        Serial.write(c);
         header += c;
-        if (c == '\n') {                    // if the byte is a newline character
-          // if the current line is blank, you got two newline characters in a row.
-          // that's the end of the client HTTP request, so send a response:
+        if (c == '\n') {
           if (currentLine.length() == 0) {
-            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
             
             // === HANDLE COMMANDS ===
-            // Mode switching works anytime
             if (header.indexOf("GET /auto") >= 0) {
               Serial.println("Switching to AUTO mode");
               autoMode = true;
@@ -279,34 +286,31 @@ void loop(){
               Serial.println("Switching to MANUAL mode");
               autoMode = false;
             }
-            // Manual controls only work in MANUAL mode
             else if (header.indexOf("GET /open") >= 0) {
               if (!autoMode) {
                 Serial.println("Manual OPEN command received");
                 openGate();
               } else {
-                Serial.println("⚠ OPEN blocked - Switch to MANUAL mode first");
+                Serial.println("OPEN blocked - Switch to MANUAL mode first");
               }
             } else if (header.indexOf("GET /close") >= 0) {
               if (!autoMode) {
                 Serial.println("Manual CLOSE command received");
                 closeGate();
               } else {
-                Serial.println("⚠ CLOSE blocked - Switch to MANUAL mode first");
+                Serial.println("CLOSE blocked - Switch to MANUAL mode first");
               }
             }
             
-            // Get current sensor readings for display
             float leftDist = getDistance(TRIG_PIN_LEFT, ECHO_PIN_LEFT);
             float rightDist = getDistance(TRIG_PIN_RIGHT, ECHO_PIN_RIGHT);
             
             // === BUILD HTML PAGE ===
             client.println("<!DOCTYPE html><html>");
             client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-            client.println("<meta http-equiv=\"refresh\" content=\"3\">"); // Auto-refresh every 3 seconds
+            client.println("<meta http-equiv=\"refresh\" content=\"3\">");
             client.println("<link rel=\"icon\" href=\"data:,\">");
             
-            // CSS styling
             client.println("<style>");
             client.println("html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
             client.println("h1 { margin-bottom: 10px; }");
@@ -325,23 +329,19 @@ void loop(){
             client.println(".info-box { background-color: #e7f3ff; padding: 10px; margin: 15px; border-radius: 5px; font-size: 0.9rem; }");
             client.println("</style></head>");
             
-            // Page content
             client.println("<body><h1>ESP32 Bridge Control</h1>");
+            client.println("<p style=\"color: #666; font-size: 0.9rem;\">Connected to Macquarie OneNet</p>");
             
-            // Mode indicator
             client.println("<div class=\"mode-indicator " + String(autoMode ? "auto-mode" : "manual-mode") + "\">");
             client.println("<strong>Mode:</strong> " + String(autoMode ? "AUTOMATIC" : "MANUAL") + "</div>");
             
-            // Gate status
             client.println("<div class=\"status " + String(gateIsOpen ? "open" : "closed") + "\">");
             client.println("Bridge Status: <strong>" + String(gateIsOpen ? "OPEN (Cars can pass)" : "CLOSED (Boat passing)") + "</strong></div>");
             
-            // Smart timer info
             client.println("<div class=\"info-box\">");
             client.println("<strong>Smart Timer Active:</strong> Bridge opens when both sensors clear OR after 20 sec timeout");
             client.println("</div>");
             
-            // Control buttons
             client.println("<h2>Manual Controls</h2>");
             if (autoMode) {
               client.println("<p style=\"color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 5px;\">Controls locked in AUTO mode - Switch to MANUAL to use buttons</p>");
@@ -352,12 +352,10 @@ void loop(){
               client.println("<a href=\"/close\"><button class=\"button button2\">CLOSE BRIDGE</button></a></p>");
             }
             
-            // Mode toggle buttons
             client.println("<h2>Mode Control</h2>");
             client.println("<p><a href=\"/auto\"><button class=\"button button3\">AUTO MODE</button></a>");
             client.println("<a href=\"/manual\"><button class=\"button button4\">MANUAL MODE</button></a></p>");
             
-            // Sensor readings
             client.println("<hr>");
             client.println("<h2>Sensor Status</h2>");
             client.println("<div class=\"sensor-box\">");
@@ -372,37 +370,31 @@ void loop(){
             client.println("<p>" + String((rightDist > 0 && rightDist <= DETECTION_DISTANCE) ? "BOAT DETECTED" : "Clear") + "</p>");
             client.println("</div>");
             
-            // LED status
             client.println("<hr>");
             client.println("<h2>Traffic Lights</h2>");
             client.println("<p>Red LED: " + String(digitalRead(RED_LED) ? "ON" : "OFF") + "</p>");
             client.println("<p>Yellow LED: " + String(digitalRead(YELLOW_LED) ? "ON" : "OFF") + "</p>");
             client.println("<p>Green LED: " + String(digitalRead(GREEN_LED) ? "ON" : "OFF") + "</p>");
             
-            // System info
             client.println("<hr>");
             client.println("<p style=\"font-size: 0.9rem; color: #666;\">Page auto-refreshes every 3 seconds | Detection: " + String(DETECTION_DISTANCE) + "cm | Clear: " + String(CLEAR_DISTANCE) + "cm</p>");
             
             client.println("</body></html>");
             
-            // The HTTP response ends with another blank line
             client.println();
-            // Break out of the while loop
             break;
-          } else { // if you got a newline, then clear currentLine
+          } else {
             currentLine = "";
           }
-        } else if (c != '\r') {  // if you got anything else but a carriage return character,
-          currentLine += c;      // add it to the end of the currentLine
+        } else if (c != '\r') {
+          currentLine += c;
         }
       }
     }
-    // Clear the header variable
     header = "";
-    // Close the connection
     client.stop();
     Serial.println("Client disconnected\n");
   }
   
-  delay(SENSOR_CHECK_INTERVAL); // Small delay between sensor checks
+  delay(SENSOR_CHECK_INTERVAL);
 }
