@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>ESP32 Bridge Control</title>
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+<header>
+    <h1>ESP32 Bridge Control</h1>
+</header>
+
+<div class="status-container">
+    <div class="status-card">
+        <h2>Bridge Status</h2>
+        <div class="gate-status open" id="gateStatus">OPEN (Cars can pass)</div>
+
+        <div class="info-box">
+            <strong>Smart Timer Active:</strong> Bridge opens when both sensors clear OR after 20 sec timeout
+        </div>
+    </div>
+
+    <div class="status-card">
+        <h2>Operation Mode</h2>
+        <div class="mode-indicator auto-mode" id="modeIndicator">AUTOMATIC</div>
+
+        <div class="button-group">
+            <button class="button button-info" id="autoModeBtn">AUTO MODE</button>
+            <button class="button button-secondary" id="manualModeBtn">MANUAL MODE</button>
+        </div>
+    </div>
+</div>
+
+<div class="controls">
+    <div class="control-section">
+        <h2>Manual Controls</h2>
+        <p class="manual-note" id="manualControlNote">
+            Controls locked in AUTO mode - Switch to MANUAL to use buttons
+        </p>
+
+        <div class="button-group">
+            <button class="button" disabled id="openBtn">OPEN BRIDGE</button>
+            <button class="button button-danger" disabled id="closeBtn">CLOSE BRIDGE</button>
+        </div>
+    </div>
+
+    <div class="control-section">
+        <h2>Sensor Simulation</h2>
+        <p>Simulate boat detection for testing:</p>
+
+        <div class="button-group">
+            <button class="button button-secondary" id="simulateLeftBtn">Simulate Left Boat</button>
+            <button class="button button-secondary" id="simulateRightBtn">Simulate Right Boat</button>
+            <button class="button" id="clearSensorsBtn">Clear Sensors</button>
+        </div>
+    </div>
+</div>
+
+<div class="sensors">
+    <div class="sensor-box">
+        <h3>Left Sensor (West)</h3>
+        <div class="sensor-reading" id="leftSensorReading">- cm</div>
+        <div class="sensor-status clear" id="leftSensorStatus">Clear</div>
+    </div>
+
+    <div class="sensor-box">
+        <h3>Right Sensor (East)</h3>
+        <div class="sensor-reading" id="rightSensorReading">- cm</div>
+        <div class="sensor-status clear" id="rightSensorStatus">Clear</div>
+    </div>
+</div>
+
+<div class="traffic-lights">
+    <div class="light red-light light-off" id="redLight">RED</div>
+    <div class="light yellow-light light-off" id="yellowLight">YELLOW</div>
+    <div class="light green-light" id="greenLight">GREEN</div>
+</div>
+
+<div class="log-container">
+    <h2>System Log</h2>
+    <div id="log">
+        <div class="log-entry">[12:30:45] System initialized in AUTO mode</div>
+        <div class="log-entry">[12:30:45] Bridge status: OPEN</div>
+        <div class="log-entry">[12:30:45] All sensors clear</div>
+    </div>
+</div>
+
+<footer>
+    <p>Page auto-refreshes every 3 seconds | Detection: 20cm | Clear: 50cm</p>
+    <p>This is a simulation interface - Connect to ESP32 for actual hardware control</p>
+</footer>
+</body>
+</html>
